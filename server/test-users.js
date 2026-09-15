@@ -1,0 +1,85 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+const http=require('node:http');
+const {createShop,hash}=require('./server');
+(async()=>{
+  const temp=fs.mkdtempSync(path.join(os.tmpdir(),'magictupper-users-test-'));let server,openResponse;
+  try{
+    const library=path.join(temp,'library');fs.mkdirSync(library);fs.writeFileSync(path.join(library,'sample.nro'),'test');fs.writeFileSync(path.join(library,'transfer.bin'),Buffer.alloc(16*1024*1024,1));
+    const config={name:'Test',library,username:'admin',passwordSalt:'ab'.repeat(16),passwordHash:await hash('admin-password-123','ab'.repeat(16))};
+    async function start(){server=createShop(config,temp);await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));return 'http://127.0.0.1:'+server.address().port;}
+    let base=await start();
+    const request=(url,token,method='GET',body)=>fetch(base+url,{method,headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},...(body!==undefined?{body:JSON.stringify(body)}:{})});
+    async function login(username,password){const response=await request('/api/login',null,'POST',{username,password});assert.equal(response.status,200);return response.json();}
+    assert.equal((await request('/api/admin/users')).status,401);
+    const page=await request('/admin');assert.equal(page.status,200);assert.match(page.headers.get('content-security-policy'),/frame-ancestors 'none'/);
+    let admin=(await login('admin','admin-password-123')).token;
+    const created=await request('/api/admin/users',admin,'POST',{username:'alice',password:'alice-password-123'});assert.equal(created.status,201);const alice=(await created.json()).user;
+    assert.equal(alice.role,'standard');assert.equal(alice.passwordHash,undefined);
+    const shortPassword=await request('/api/admin/users',admin,'POST',{username:'short-password',password:'123456',role:'standar'});assert.equal(shortPassword.status,201);assert.equal((await shortPassword.json()).user.role,'standard');
+    const namedAdmin=await request('/api/admin/users',admin,'POST',{username:'demo',password:'123456',role:'standard'});assert.equal(namedAdmin.status,201);assert.equal((await namedAdmin.json()).user.role,'standard','El nombre no concede privilegios');
+    assert.equal((await request('/api/admin/users',admin,'POST',{username:'invalid-role',password:'123456',role:'owner'})).status,400);
+    const duplicate=await request('/api/admin/users',admin,'POST',{username:'alice',password:'alice-password-123'});assert.equal(duplicate.status,409);
+    const concurrent=await Promise.all([1,2].map(()=>request('/api/admin/users',admin,'POST',{username:'duplicate',password:'another-password-123'})));assert.deepEqual(concurrent.map(r=>r.status).sort(),[201,409]);
+    const user=(await login('alice','alice-password-123')).token;
+    const userCatalog=await request('/api/catalog',user);assert.equal(userCatalog.status,200);
+    const sample=(await userCatalog.json()).items.find(item=>item.filename==='sample.nro');const sampleUrl='/api/files/'+sample.id;
+    assert.equal(await (await request(sampleUrl,user)).text(),'test');
+    const range=await fetch(base+sampleUrl,{headers:{Authorization:'Bearer '+user,Range:'bytes=1-2'}});assert.equal(range.status,206);assert.equal(await range.text(),'es');
+    assert.equal((await request(sampleUrl,user,'DELETE')).status,403);
+    assert.equal((await request(sampleUrl,user,'PATCH',{name:'changed'})).status,403);
+    assert.equal((await request('/api/admin/users/owner',user,'PATCH',{role:'standard'})).status,403);
+    assert.equal((await request('/api/admin/users',user)).status,403);
+    assert.equal((await request('/api/admin/users',user,'POST',{username:'intruder',password:'intruder-password'})).status,403);
+    assert.equal((await request('/api/admin/users',user,'POST',{username:'forged-admin',password:'intruder-password',role:'admin'})).status,403);
+    assert.equal((await request('/api/admin/users',null,'POST',{username:'anonymous-admin',password:'intruder-password',role:'admin'})).status,401);
+    const adminCreated=await request('/api/admin/users',admin,'POST',{username:'second-admin',password:'second-admin-password',role:'admin'});
+    assert.equal(adminCreated.status,201);assert.equal((await adminCreated.json()).user.role,'admin');
+    const secondAdmin=(await login('second-admin','second-admin-password')).token;
+    assert.equal((await request('/api/admin/users',secondAdmin,'POST',{username:'delegated-standard',password:'delegated-password',role:'standard'})).status,201);
+    assert.equal((await request('/api/admin/users',secondAdmin,'POST',{username:'delegated-admin',password:'delegated-password',role:'admin'})).status,201);
+    assert.equal((await request('/api/admin/users/owner',admin,'PATCH',{enabled:false})).status,409);
+    assert.equal((await request('/api/admin/users/owner',admin,'PATCH',{role:'user'})).status,409);
+    assert.equal((await request('/api/admin/users/'+alice.id,admin,'PATCH',{password:'alice-new-password'})).status,200);
+    assert.equal((await request('/api/catalog',user)).status,401);
+    const newSession=(await login('alice','alice-new-password')).token;
+    const catalog=await (await request('/api/catalog',newSession)).json();const transfer=catalog.items.find(item=>item.filename==='transfer.bin');
+    openResponse=await new Promise((resolve,reject)=>{const req=http.get(base+'/api/files/'+transfer.id,{headers:{Authorization:'Bearer '+newSession}},response=>{response.pause();response.on('error',()=>{});resolve(response);});req.on('error',reject);});
+    const interruption=new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(new Error('La descarga revocada no se interrumpió.')),5000);openResponse.once('aborted',()=>{clearTimeout(timer);resolve();});openResponse.once('end',()=>{clearTimeout(timer);reject(new Error('La descarga terminó después de revocar la sesión.'));});});
+    assert.equal((await request('/api/admin/users/'+alice.id+'/revoke',admin,'POST',{})).status,200);
+    openResponse.resume();await interruption;openResponse=null;
+    assert.equal((await request('/api/catalog',newSession)).status,401);
+    assert.equal((await request('/api/admin/users/'+alice.id,admin,'PATCH',{enabled:false})).status,200);
+    assert.equal((await request('/api/login',null,'POST',{username:'alice',password:'alice-new-password'})).status,401);
+    assert.equal((await request('/api/admin/users/'+alice.id,admin,'PATCH',{enabled:true})).status,200);
+    const restored=(await login('alice','alice-new-password')).token;
+    assert.equal((await request('/api/catalog',newSession)).status,401);
+    assert.equal((await request('/api/catalog',restored)).status,200);
+    const list=await (await request('/api/admin/users',admin)).json();assert.equal(list.users.find(u=>u.id===alice.id).activeSessions,1);
+    assert.ok(!JSON.stringify(list).includes('passwordHash'));assert.ok(!fs.readFileSync(path.join(temp,'data','users.json'),'utf8').includes('alice-new-password'));
+    await new Promise(resolve=>server.close(resolve));
+    const userFile=path.join(temp,'data','users.json');const legacy=JSON.parse(fs.readFileSync(userFile,'utf8'));legacy.users.find(u=>u.id===alice.id).role='user';fs.writeFileSync(userFile,JSON.stringify(legacy));
+    base=await start();assert.equal(JSON.parse(fs.readFileSync(userFile,'utf8')).users.find(u=>u.id===alice.id).role,'standard');
+    assert.equal((await request('/api/catalog',restored)).status,401);
+    admin=(await login('admin','admin-password-123')).token;
+    assert.equal((await request('/api/login',null,'POST',{username:'alice',password:'alice-password-123'})).status,401);
+    const persisted=(await login('alice','alice-new-password')).token;
+    assert.equal((await request('/api/admin/users/'+alice.id,admin,'PATCH',{role:'admin'})).status,200);
+    assert.equal((await request('/api/admin/users',persisted)).status,401);
+    const promoted=(await login('alice','alice-new-password')).token;
+    assert.equal((await request('/api/admin/users',promoted)).status,200);
+    // Updating only the main admin configuration keeps all other accounts.
+    await new Promise(resolve=>server.close(resolve));config.passwordSalt='cd'.repeat(16);config.passwordHash=await hash('recovered-admin-password',config.passwordSalt);base=await start();
+    admin=(await login('admin','recovered-admin-password')).token;
+    const afterRecovery=await (await request('/api/admin/users',admin)).json();assert.ok(afterRecovery.users.some(u=>u.username==='alice'));
+    const disposable=await request('/api/admin/users',admin,'POST',{username:'delete-me',password:'delete-me-password',role:'standard'});assert.equal(disposable.status,201);const disposableUser=(await disposable.json()).user;
+    assert.equal((await request('/api/admin/users/'+disposableUser.id,admin,'DELETE')).status,200);
+    const afterDelete=await (await request('/api/admin/users',admin)).json();assert.ok(!afterDelete.users.some(u=>u.id===disposableUser.id));
+    assert.equal((await request('/api/admin/users/owner',admin,'DELETE')).status,409);
+    console.log('PASS: administración, permisos, creación/eliminación, contraseñas, desactivación, revocación, persistencia y recuperación.');
+  }finally{
+    if(openResponse)openResponse.destroy();
+    if(server)await new Promise(resolve=>server.close(resolve));
+    const target=path.resolve(temp);assert.equal(path.dirname(target),path.resolve(os.tmpdir()));assert.ok(path.basename(target).startsWith('magictupper-users-test-'));fs.rmSync(target,{recursive:true,force:true});
+  }
+})().catch(error=>{console.error(error);process.exitCode=1;});

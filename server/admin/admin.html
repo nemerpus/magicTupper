@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MagicTupper · Usuarios</title><link rel="stylesheet" href="/admin/admin.css"><script src="/admin/admin.js" defer></script></head>
+<body>
+<header><div><p class="eyebrow">MAGICTUPPER / CONTROL DEL PORTAL</p><h1>Quién entra en tu dimensión.</h1><p>Usuarios, acceso y sesiones. El pepinillo se reserva el derecho de admisión.</p></div><button id="logout" hidden>Cerrar sesión</button></header>
+<p id="notice" role="status" aria-live="polite"></p>
+<main>
+<section id="loginSection" class="panel narrow"><h2>Acceso de administrador</h2><p>Usa la cuenta creada al configurar el servidor.</p><form id="loginForm"><label>Usuario<input name="username" autocomplete="username" required maxlength="64"></label><label>Contraseña<input name="password" type="password" autocomplete="current-password" required maxlength="256"></label><button type="submit">Abrir el portal</button></form></section>
+<section id="management" hidden>
+<div class="sectionTitle"><div><p class="eyebrow">ACCESOS</p><h2>Habitantes autorizados</h2></div><button id="refresh" class="secondary">Actualizar</button></div>
+<div class="panel tableWrap"><table><thead><tr><th>Usuario</th><th>Rol</th><th>Estado</th><th>Sesiones</th><th>Acciones</th></tr></thead><tbody id="users"></tbody></table></div>
+<section class="panel"><h2>Invitar a otra dimensión</h2><form id="createForm" class="createGrid"><label>Usuario<input name="username" autocomplete="off" required maxlength="64"></label><label>Contraseña inicial<input name="password" type="password" autocomplete="new-password" required minlength="6" maxlength="256"></label><label>Permisos<select name="role"><option value="user">Usuario · catálogo y descargas</option><option value="admin">Administrador · también gestiona cuentas</option></select></label><button type="submit">Crear usuario</button></form><p class="hint">Mínimo 12 caracteres. Comparte las credenciales con la persona por tu medio habitual.</p></section>
+<p class="hint">Desactivar, cambiar permisos, cambiar contraseña o cerrar sesiones interrumpe las descargas activas de esa cuenta. Los parciales de la Switch se conservan para reanudar.</p>
+</section>
+</main>
+<dialog id="passwordDialog"><form id="passwordForm"><h2>Cambiar contraseña</h2><p id="passwordUser"></p><label>Nueva contraseña<input name="password" type="password" autocomplete="new-password" required minlength="6" maxlength="256"></label><p class="hint">Se cerrarán todas las sesiones de esta cuenta.</p><div class="actions"><button id="cancelPassword" class="secondary" type="button">Cancelar</button><button type="submit">Guardar contraseña</button></div></form></dialog>
+<footer>Panel privado de tu servidor · La sesión del navegador se pierde al recargar.</footer>
+</body></html>

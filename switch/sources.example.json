@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "nextId": 3,
+  "active": "1",
+  "sources": [
+    {"id": "1", "name": "PC de casa", "url": "http://192.168.1.100:8765", "user": "miusuario"},
+    {"id": "2", "name": "Servidor retro", "url": "http://192.168.1.101:8765", "user": "retro"}
+  ]
+}

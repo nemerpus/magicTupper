@@ -1,0 +1,30 @@
+services:
+  magictupper:
+    image: node:24-bookworm-slim
+    container_name: magictupper
+    user: "1000:1000"
+    working_dir: /app
+    command: ["node", "server/server.js", "/config/config.json"]
+    restart: unless-stopped
+    read_only: true
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "8765:8765"
+    volumes:
+      - ./server:/app/server:ro
+      - ./config:/config:ro
+      - ./data:/data
+      - /srv/magictupper/library:/library:ro
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8765/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

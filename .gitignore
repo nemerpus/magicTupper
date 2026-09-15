@@ -1,0 +1,24 @@
+# Build output
+**/bin/
+**/obj/
+**/build/
+**/.cxx/
+**/.gradle/
+
+# Local/private configuration
+deploy/config/config.json
+server/config.json
+.env
+*.local
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+Downloads/*.exe
+pc-client/publish/
+
+/Downloads/*.exe
+/pc-client/publish/**
