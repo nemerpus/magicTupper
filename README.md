@@ -9,22 +9,24 @@ RCM Payload Injector para dispositivos Android compatibles con USB Host.
 En Explorar, Montar XCI · próximamente aparece como función futura y no está implementada en 1.1.0.
 Instalación rápida
 Nintendo Switch
-Todo lo necesario para Switch está en `Downloads/SD/`:
+Todo lo necesario para Nintendo Switch está en `Downloads/SD/`:
 ```text
 Downloads/SD/
 ├── atmosphere/
 │   └── contents/42000000004D5452/
 │       ├── exefs.nsp
-│       └── flags/boot2.flag
+│       └── flags/
+│           └── boot2.flag
 └── switch/
     └── magicTupper/
         └── magicTupper.nro
 ```
 Copia el contenido de `Downloads/SD/` a la raíz de la microSD y reinicia completamente la consola para cargar el sysmodule. Después abre magicTupper desde Homebrew Menu.
 Android / Android TV
-Instala `Downloads/magicTupper-Android.apk`. El mismo APK funciona en móvil, tablet y Android TV. El RCM Payload Injector se oculta en Android TV.
+Instala `Downloads/magicTupper-Android.apk`.
+El mismo APK funciona en móvil, tablet y Android TV. El RCM Payload Injector se oculta en Android TV.
 Windows
-Descomprime `Downloads/magicTupper-PC.zip` y ejecuta el cliente incluido. Es un paquete Windows x64 autocontenido.
+Descomprime `Downloads/magicTupper-PC.zip` y ejecuta el cliente incluido. Es un paquete autocontenido para Windows x64.
 Docker
 `Downloads/compose_magictupper.yml` contiene un despliegue genérico. Ajusta rutas, usuarios, permisos y configuración para tu entorno.
 Descargas
