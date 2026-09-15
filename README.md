@@ -1,4 +1,4 @@
-﻿# magicTupper
+# magicTupper
 
 magicTupper reÃºne una aplicaciÃ³n homebrew para Nintendo Switch, clientes para Windows y Android/Android TV y un servicio opcional desplegable con Docker Compose.
 
@@ -15,7 +15,7 @@ magicTupper reÃºne una aplicaciÃ³n homebrew para Nintendo Switch, clientes p
 
 ### Nintendo Switch
 
-La carpeta `SD/` contiene todo lo necesario:
+La carpeta `Downloads/SD/` contiene todo lo necesario:
 
 ```text
 SD/
